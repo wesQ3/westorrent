@@ -1,3 +1,5 @@
+using System.Data.SqlTypes;
+using System.Security.Cryptography;
 using System.Text;
 
 public class Torrent
@@ -7,6 +9,7 @@ public class Torrent
     public string Filename { get; set; }
     public int PieceLength { get; set; }
     public List<byte[]> Pieces { get; set; }
+    public byte[] InfoHash {get; set;}
 
     public Torrent(string inFile)
     {
@@ -27,14 +30,15 @@ public class Torrent
         var pieces = ReadBytes(bytes, "6:pieces");
         Pieces = pieces.Chunk(20).ToList();
         Console.WriteLine($"  pieces:   {Pieces.Count}");
+        InfoHash = GetInfoHash(bytes);
+        Console.WriteLine($"  infohash: {Convert.ToHexString(InfoHash)}");
     }
 
     private static byte[] ReadBytes(byte[] bytes, string label)
     {
         var loc = FindSequence(bytes, label);
-        var readLenBytes = bytes.Skip(loc).TakeWhile((b, check) => b != 0x3a).ToArray();
-        var readLen = int.Parse(Encoding.ASCII.GetString(readLenBytes));
-        return bytes.Skip(loc + readLenBytes.Length + 1).Take(readLen).ToArray();
+        var (readStart, readLen) = ReadLength(bytes, loc);
+        return bytes.Skip(readStart).Take(readLen).ToArray();
 
     }
     private static string ReadString(byte[] bytes, string label)
@@ -50,10 +54,30 @@ public class Torrent
         return int.Parse(Encoding.ASCII.GetString(intBytes));
     }
 
+    private static byte[] ReadInfo(byte[] bytes)
+    {
+        var start = FindSequence(bytes, "4:info"); // + d
+        var piecesStart = FindSequence(bytes, "6:pieces");
+        var (readStart, readLen) = ReadLength(bytes, piecesStart);
+        var end = readStart + readLen + 1; // + e
+        var last = bytes[end];
+        return bytes[start..end];
+    }
+    private static byte[] GetInfoHash(byte[] bytes)
+    {
+        var info = ReadInfo(bytes);
+        return SHA1.HashData(info);
+
+    }
+
     private static int FindSequence(byte[] bytes, string label)
     {
+        return FindSequence(bytes, label, 0);
+    }
+    private static int FindSequence(byte[] bytes, string label, int start)
+    {
         var target = Encoding.ASCII.GetBytes(label);
-        for (int i = 0; i < bytes.Length; i++)
+        for (int i = start; i < bytes.Length; i++)
         {
             var found = bytes.Skip(i)
                 .Take(target.Length)
@@ -62,5 +86,12 @@ public class Torrent
                 return i + target.Length;
         }
         throw new KeyNotFoundException();
+    }
+
+    private static (int,int) ReadLength(byte[] bytes, int start)
+    {
+        var readLenBytes = bytes.Skip(start).TakeWhile((b, check) => b != 0x3a).ToArray();
+        var readLen = int.Parse(Encoding.ASCII.GetString(readLenBytes));
+        return (start + readLenBytes.Length + 1, readLen);
     }
 }
