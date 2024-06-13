@@ -2,7 +2,6 @@ using System.Text;
 
 public class Torrent
 {
-    public string Name { get; set; }
     public long Size { get; set; }
     public string Tracker { get; set; }
     public string Filename { get; set; }
@@ -25,17 +24,22 @@ public class Torrent
         Console.WriteLine($"  length:   {Size}");
         PieceLength = ReadInt(bytes, "12:piece length");
         Console.WriteLine($"  piecelen: {PieceLength}");
-        var piecesStr = ReadString(bytes, "6:pieces");
-        Console.WriteLine($"  pieces:   {piecesStr.Length}");
+        var pieces = ReadBytes(bytes, "6:pieces");
+        Pieces = pieces.Chunk(20).ToList();
+        Console.WriteLine($"  pieces:   {Pieces.Count}");
     }
 
-    private static string ReadString(byte[] bytes, string label)
+    private static byte[] ReadBytes(byte[] bytes, string label)
     {
         var loc = FindSequence(bytes, label);
         var readLenBytes = bytes.Skip(loc).TakeWhile((b, check) => b != 0x3a).ToArray();
         var readLen = int.Parse(Encoding.ASCII.GetString(readLenBytes));
-        var sequence = bytes.Skip(loc + readLenBytes.Length + 1).Take(readLen).ToArray();
-        return Encoding.ASCII.GetString(sequence);
+        return bytes.Skip(loc + readLenBytes.Length + 1).Take(readLen).ToArray();
+
+    }
+    private static string ReadString(byte[] bytes, string label)
+    {
+        return Encoding.ASCII.GetString(ReadBytes(bytes, label));
     }
 
     private static int ReadInt(byte[] bytes, string label)
