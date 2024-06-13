@@ -18,11 +18,6 @@ void Bail()
 
 void Read(string filename)
 {
-    Console.WriteLine($"read from {filename}");
-    var fs = File.OpenRead(filename);
-    Console.WriteLine($"  file size {fs.Length}");
-    var br = new BinaryReader(fs);
-    var magic = br.ReadBytes(1);
-    Console.WriteLine($"  magic: {Convert.ToHexString(magic)}");
+    var tor = new Torrent(filename);
 }
 
