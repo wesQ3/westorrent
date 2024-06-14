@@ -5,10 +5,13 @@
         Bail();
 
     var filename = args[index + 1] ?? "../example.torrent";
-    Read(filename);
+    await Read(filename);
 }
-var localFile = "../example.torrent";
-Read(localFile);
+else
+{
+    var localFile = "../example.torrent";
+    await Read(localFile);
+}
 
 void Bail()
 {
@@ -16,8 +19,9 @@ void Bail()
     Environment.Exit(1);
 }
 
-void Read(string filename)
+async Task Read(string filename)
 {
     var tor = new Torrent(filename);
+    await Protocol.Announce(tor);
 }
 
