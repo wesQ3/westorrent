@@ -1,4 +1,3 @@
-using System.Data.SqlTypes;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -34,19 +33,19 @@ public class Torrent
         Console.WriteLine($"  infohash: {Convert.ToHexString(InfoHash)}");
     }
 
-    private static byte[] ReadBytes(byte[] bytes, string label)
+    public static byte[] ReadBytes(byte[] bytes, string label)
     {
         var loc = FindSequence(bytes, label);
         var (readStart, readLen) = ReadLength(bytes, loc);
         return bytes.Skip(readStart).Take(readLen).ToArray();
 
     }
-    private static string ReadString(byte[] bytes, string label)
+    public static string ReadString(byte[] bytes, string label)
     {
         return Encoding.ASCII.GetString(ReadBytes(bytes, label));
     }
 
-    private static long ReadInt(byte[] bytes, string label)
+    public static long ReadInt(byte[] bytes, string label)
     {
         var loc = FindSequence(bytes, label);
         // i262144e
@@ -54,7 +53,7 @@ public class Torrent
         return long.Parse(Encoding.ASCII.GetString(intBytes));
     }
 
-    private static byte[] ReadInfo(byte[] bytes)
+    public static byte[] ReadInfo(byte[] bytes)
     {
         // assume info hash stops at the end of pieces
         var start = FindSequence(bytes, "4:info"); // + d
