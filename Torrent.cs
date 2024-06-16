@@ -25,7 +25,7 @@ public class Torrent
         Console.WriteLine($"  filename: {Filename}");
         Size = ReadInt(bytes, "6:length");
         Console.WriteLine($"  length:   {Size}");
-        PieceLength = ReadInt(bytes, "12:piece length");
+        PieceLength = (int)ReadInt(bytes, "12:piece length");
         Console.WriteLine($"  piecelen: {PieceLength}");
         var pieces = ReadBytes(bytes, "6:pieces");
         Pieces = pieces.Chunk(20).ToList();
@@ -46,16 +46,17 @@ public class Torrent
         return Encoding.ASCII.GetString(ReadBytes(bytes, label));
     }
 
-    private static int ReadInt(byte[] bytes, string label)
+    private static long ReadInt(byte[] bytes, string label)
     {
         var loc = FindSequence(bytes, label);
         // i262144e
         var intBytes = bytes.Skip(loc + 1).TakeWhile((b, check) => b != 0x65).ToArray();
-        return int.Parse(Encoding.ASCII.GetString(intBytes));
+        return long.Parse(Encoding.ASCII.GetString(intBytes));
     }
 
     private static byte[] ReadInfo(byte[] bytes)
     {
+        // assume info hash stops at the end of pieces
         var start = FindSequence(bytes, "4:info"); // + d
         var piecesStart = FindSequence(bytes, "6:pieces");
         var (readStart, readLen) = ReadLength(bytes, piecesStart);
