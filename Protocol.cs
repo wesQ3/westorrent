@@ -43,11 +43,13 @@ class Protocol
 
     public static void ParseAnnounceResponse(byte[] bytes)
     {
+        // using var fs = File.OpenWrite("../last-announce-reponse.dat");
+        // fs.Write(bytes);
         var interval = Torrent.ReadInt(bytes, "8:interval");
         Console.WriteLine($"  interval: {interval}");
         var peers = Torrent.ReadBytes(bytes, "5:peers");
-        var peerList = peers.Chunk(6).ToList();
-        Console.WriteLine($"  peers ({peerList.Count}): sample {Convert.ToHexString(peerList[0])}");
+        var peerList = peers.Chunk(6).Select(p => new Peer(p)).ToList();
+        Console.WriteLine($"  peers ({peerList.Count}): sample {peerList[0]}");
 
     }
 
