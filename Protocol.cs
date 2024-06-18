@@ -45,9 +45,9 @@ class Protocol
     {
         // using var fs = File.OpenWrite("../last-announce-reponse.dat");
         // fs.Write(bytes);
-        var interval = Torrent.ReadInt(bytes, "8:interval");
+        var interval = Bencode.ReadInt(bytes, "8:interval");
         Console.WriteLine($"  interval: {interval}");
-        var peers = Torrent.ReadBytes(bytes, "5:peers");
+        var peers = Bencode.ReadBytes(bytes, "5:peers");
         var peerList = peers.Chunk(6).Select(p => new Peer(p)).ToList();
         Console.WriteLine($"  peers ({peerList.Count}): sample {peerList[0]}");
 
