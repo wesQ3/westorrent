@@ -5,23 +5,6 @@ class Protocol
 {
     const string ClientId = "WB";
     const string Version = "0001";
-    public static async Task<HttpResponseMessage> Announce(Torrent t)
-    {
-        Console.WriteLine($"announce to: {t.Tracker}");
-        var ua = new HttpClient();
-        var uri = AnnounceRequest(t);
-        var res = await ua.GetAsync(uri);
-        Console.WriteLine($"  announce res: {res.StatusCode}");
-        var resContent = await res.Content.ReadAsByteArrayAsync();
-        if (!res.IsSuccessStatusCode)
-        {
-            Console.WriteLine($"  announce res: {Encoding.UTF8.GetString(resContent)}");
-            return res;
-        }
-
-        ParseAnnounceResponse(resContent);
-        return res;
-    }
 
     public static string AnnounceRequest(Torrent t)
     {
@@ -41,16 +24,36 @@ class Protocol
         return uri.ToString();
     }
 
-    public static void ParseAnnounceResponse(byte[] bytes)
+    public static (int, List<Peer>) ParseAnnounceResponse(byte[] bytes)
     {
         // using var fs = File.OpenWrite("../last-announce-reponse.dat");
         // fs.Write(bytes);
-        var interval = Bencode.ReadInt(bytes, "8:interval");
+        var interval = (int)Bencode.ReadInt(bytes, "8:interval");
         Console.WriteLine($"  interval: {interval}");
         var peers = Bencode.ReadBytes(bytes, "5:peers");
         var peerList = peers.Chunk(6).Select(p => new Peer(p)).ToList();
         Console.WriteLine($"  peers ({peerList.Count}): sample {peerList[0]}");
+        return (interval, peerList);
+    }
 
+    public static byte[] Handshake(byte[] infoHash, string peerId)
+    {
+                if (infoHash.Length != 20)
+            throw new ArgumentException("InfoHash must be 20 bytes long.");
+        
+        if (peerId.Length != 20)
+            throw new ArgumentException("PeerId must be 20 characters long.");
+
+        // handshake: <pstrlen><pstr><reservedx8><info_hash><peer_id> 
+        var pstr = "BitTorrent protocol";
+        var handshake = new List<byte>();
+        handshake.Add((byte)Encoding.ASCII.GetByteCount(pstr));
+        handshake.AddRange(Encoding.ASCII.GetBytes(pstr));
+        handshake.AddRange(new byte[8]);
+        handshake.AddRange(infoHash);
+        handshake.AddRange(Encoding.ASCII.GetBytes(peerId));
+
+        return handshake.ToArray();
     }
 
     private static string EncodeInfoHash(byte[] infoHash)

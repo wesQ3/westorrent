@@ -1,6 +1,6 @@
 using System.Net;
 
-class Peer
+public class Peer
 {
     IPAddress Address {get; set;}
     int Port {get; set;}
