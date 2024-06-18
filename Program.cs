@@ -22,6 +22,7 @@ void Bail()
 async Task Read(string filename)
 {
     var tor = new Torrent(filename);
-    await Protocol.Announce(tor);
+    var client = new Client(tor);
+    await client.Announce();
 }
 

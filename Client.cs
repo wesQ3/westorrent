@@ -4,13 +4,25 @@ public class Client
 {
     List<Peer> Peers {get; set;}
     Torrent Torrent {get; set;}
+    string PeerId {get; set;}
+
+    const string ClientId = "WB";
+    const string Version = "0001";
 
     public Client (Torrent tor)
     {
         Peers = [];
         Torrent = tor;
+        PeerId = RandomPeerId();
+        Console.WriteLine($"new client {PeerId}");
     }
 
+    private string RandomPeerId()
+    {
+        var rand = new Random();
+        var randbytes = new byte[6].Select(b => (byte)rand.Next(256)).ToArray();
+        return $"-{ClientId}{Version}-{Convert.ToHexString(randbytes)}";
+    }
     public async Task<bool> Start()
     {
         SetupAnnounceTimer();
@@ -21,7 +33,7 @@ public class Client
     {
         Console.WriteLine($"announce to: {Torrent.Tracker}");
         var ua = new HttpClient();
-        var uri = Protocol.AnnounceRequest(Torrent);
+        var uri = Protocol.AnnounceRequest(Torrent, PeerId);
         var res = await ua.GetAsync(uri);
         Console.WriteLine($"  announce res: {res.StatusCode}");
         var resContent = await res.Content.ReadAsByteArrayAsync();

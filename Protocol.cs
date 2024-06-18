@@ -3,13 +3,10 @@ using System.Text;
 
 class Protocol
 {
-    const string ClientId = "WB";
-    const string Version = "0001";
-
-    public static string AnnounceRequest(Torrent t)
+    public static string AnnounceRequest(Torrent t, string peerId)
     {
         var queryParams = HttpUtility.ParseQueryString("");
-        queryParams["peer_id"] = $"-{ClientId}{Version}-f23408e26371"; // should be random
+        queryParams["peer_id"] = peerId;
         queryParams["port"] = "6881";
         queryParams["uploaded"] = "0";
         queryParams["downloaded"] = "0";
