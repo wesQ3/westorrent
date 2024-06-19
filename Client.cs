@@ -23,10 +23,9 @@ public class Client
         var randbytes = new byte[6].Select(b => (byte)rand.Next(256)).ToArray();
         return $"-{ClientId}{Version}-{Convert.ToHexString(randbytes)}";
     }
-    public async Task<bool> Start()
+    public void Start()
     {
         SetupAnnounceTimer();
-        return true;
     }
 
     public async Task<(int, List<Peer>)> Announce()

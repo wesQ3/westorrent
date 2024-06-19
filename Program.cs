@@ -1,28 +1,25 @@
-﻿if (args.Contains("--file"))
-{
-    var index = Array.IndexOf(args, "--file");
-    if (index == -1 || index - 1 == args.Length)
-        Bail();
+﻿var outFile = GetArg("out") ?? ".torrent/download";
+var torrentFile = GetArg("torrent") ?? ".torrent/example.torrent";
 
-    var filename = args[index + 1] ?? "../example.torrent";
-    await Read(filename);
-}
-else
+var tor = new Torrent(torrentFile);
+var client = new Client(tor);
+client.Start();
+// await client.DownloadToFile(outFile);
+
+string? GetArg(string label)
 {
-    var localFile = "../example.torrent";
-    await Read(localFile);
+    var index = Array.IndexOf(args, $"--{label}");
+    if (index == -1)
+        return null;
+
+    if (index - 1 == args.Length)
+        Bail(label);
+
+    return args[index + 1];
 }
 
-void Bail()
+void Bail(string label)
 {
-    Console.WriteLine("bad args");
+    Console.WriteLine($"bad args: {label}");
     Environment.Exit(1);
 }
-
-async Task Read(string filename)
-{
-    var tor = new Torrent(filename);
-    var client = new Client(tor);
-    await client.Announce();
-}
-

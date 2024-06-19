@@ -13,7 +13,7 @@ class Protocol
         queryParams["left"] = $"{t.Size}";
         queryParams["compact"] = "1";
         queryParams["numwant"] = "10";
-        var uri =  new UriBuilder(t.Tracker)
+        var uri = new UriBuilder(t.Tracker)
         // var uri = new UriBuilder("http://localhost/app/announce")
         {
             Query = queryParams + $"&info_hash={EncodeInfoHash(t.InfoHash)}"
@@ -23,21 +23,21 @@ class Protocol
 
     public static (int, List<Peer>) ParseAnnounceResponse(byte[] bytes)
     {
-        // using var fs = File.OpenWrite("../last-announce-reponse.dat");
-        // fs.Write(bytes);
+        using var fs = File.OpenWrite("../last-announce-reponse.dat");
+        fs.Write(bytes);
         var interval = (int)Bencode.ReadInt(bytes, "8:interval");
         Console.WriteLine($"  interval: {interval}");
         var peers = Bencode.ReadBytes(bytes, "5:peers");
         var peerList = peers.Chunk(6).Select(p => new Peer(p)).ToList();
-        Console.WriteLine($"  peers ({peerList.Count}): sample {peerList[0]}");
+        Console.WriteLine($"  peers: {peerList.Count}");
         return (interval, peerList);
     }
 
     public static byte[] Handshake(byte[] infoHash, string peerId)
     {
-                if (infoHash.Length != 20)
+        if (infoHash.Length != 20)
             throw new ArgumentException("InfoHash must be 20 bytes long.");
-        
+
         if (peerId.Length != 20)
             throw new ArgumentException("PeerId must be 20 characters long.");
 
@@ -55,7 +55,7 @@ class Protocol
 
     private static string EncodeInfoHash(byte[] infoHash)
     {
-        return string.Join("", infoHash.Select(x => "%"+x.ToString("X2")));
+        return string.Join("", infoHash.Select(x => "%" + x.ToString("X2")));
     }
 
 }
