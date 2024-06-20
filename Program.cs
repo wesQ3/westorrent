@@ -3,8 +3,8 @@ var torrentFile = GetArg("torrent") ?? ".torrent/example.torrent";
 
 var tor = new Torrent(torrentFile);
 var client = new Client(tor);
-client.Start();
-// await client.DownloadToFile(outFile);
+// client.Start();
+await client.DownloadToFile(outFile);
 
 string? GetArg(string label)
 {

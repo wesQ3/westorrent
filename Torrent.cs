@@ -46,6 +46,5 @@ public class Torrent
     {
         var info = ReadInfo(bytes);
         return SHA1.HashData(info);
-
     }
 }

@@ -1,5 +1,6 @@
 using System.Web;
 using System.Text;
+using System.Runtime.Serialization;
 
 class Protocol
 {
@@ -35,27 +36,58 @@ class Protocol
 
     public static byte[] Handshake(byte[] infoHash, string peerId)
     {
-        if (infoHash.Length != 20)
-            throw new ArgumentException("InfoHash must be 20 bytes long.");
-
-        if (peerId.Length != 20)
-            throw new ArgumentException("PeerId must be 20 characters long.");
-
-        // handshake: <pstrlen><pstr><reservedx8><info_hash><peer_id> 
-        var pstr = "BitTorrent protocol";
-        var handshake = new List<byte>();
-        handshake.Add((byte)Encoding.ASCII.GetByteCount(pstr));
-        handshake.AddRange(Encoding.ASCII.GetBytes(pstr));
-        handshake.AddRange(new byte[8]);
-        handshake.AddRange(infoHash);
-        handshake.AddRange(Encoding.ASCII.GetBytes(peerId));
-
-        return handshake.ToArray();
+        return new Handshake(infoHash, peerId).Serialize();
     }
 
     private static string EncodeInfoHash(byte[] infoHash)
     {
         return string.Join("", infoHash.Select(x => "%" + x.ToString("X2")));
     }
+}
 
+class Handshake {
+    // handshake: <pstrlen><pstr><reservedx8><info_hash><peer_id>
+    const string Pstr = "BitTorrent protocol";
+    const int ReservedLen = 8;
+    string PeerId {get; set;}
+    byte[] InfoHash {get; set;}
+
+    public Handshake(byte[] infoHash, string peerId)
+    {
+        if (infoHash.Length != 20)
+            throw new ArgumentException("InfoHash must be 20 bytes long.");
+        InfoHash = infoHash;
+
+        if (peerId.Length != 20)
+            throw new ArgumentException("PeerId must be 20 characters long.");
+        PeerId = peerId;
+    }
+
+    public byte[] Serialize()
+    {
+        var l = new List<byte>();
+        l.Add((byte)Encoding.ASCII.GetByteCount(Pstr));
+        l.AddRange(Encoding.ASCII.GetBytes(Pstr));
+        l.AddRange(new byte[ReservedLen]);
+        l.AddRange(InfoHash);
+        l.AddRange(Encoding.ASCII.GetBytes(PeerId));
+
+        return l.ToArray();
+    }
+
+    public Handshake(byte[] data)
+    {
+        if (data == null || data.Length != 1 + Pstr.Length + ReservedLen + 20 + 20)
+            throw new ArgumentException("bad handshake: wrong length");
+
+        int pstrlen = data[0];
+        var pstr = Encoding.ASCII.GetString(data, 1, pstrlen);
+        if (pstr != Pstr)
+            throw new ArgumentException($"bad protocol: {pstr}");
+
+        InfoHash = new byte[20];
+        Array.Copy(data, 1 + pstrlen + ReservedLen, InfoHash, 0, 20);
+
+        PeerId = Encoding.ASCII.GetString(data, 1 + pstrlen + ReservedLen + InfoHash.Length, 20);
+    }
 }

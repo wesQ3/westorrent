@@ -8,6 +8,7 @@ public class Client
 
     const string ClientId = "WB";
     const string Version = "0001";
+    const int MAX_PEERS_CONNECTED = 10;
 
     public Client (Torrent tor)
     {
@@ -55,5 +56,19 @@ public class Client
             Peers = newPeers;
             // todo merge peers
         }
+    }
+
+    public async Task DownloadToFile(string outFile)
+    {
+        var hs = new Handshake(Torrent.InfoHash, PeerId);
+        var hs2 = new Handshake(hs.Serialize());
+        var ok = hs.Serialize() == hs2.Serialize();
+        System.Console.WriteLine($"{Convert.ToHexString(hs.Serialize())}");
+        System.Console.WriteLine($"{Convert.ToHexString(hs2.Serialize())}");
+        System.Console.WriteLine($"round trip handshake check: {ok}");
+        // while (Torrent.HasMissingPieces())
+        // {
+        //     // start download tasks
+        // }
     }
 }
