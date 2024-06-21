@@ -49,8 +49,9 @@ class Handshake {
     // handshake: <pstrlen><pstr><reservedx8><info_hash><peer_id>
     const string Pstr = "BitTorrent protocol";
     const int ReservedLen = 8;
-    string PeerId {get; set;}
-    byte[] InfoHash {get; set;}
+    public const int Length = 68; // 1 + Pstr.Length + ReservedLen + 20 + 20;
+    public string PeerId {get; set;}
+    public byte[] InfoHash {get; set;}
 
     public Handshake(byte[] infoHash, string peerId)
     {
@@ -77,7 +78,7 @@ class Handshake {
 
     public Handshake(byte[] data)
     {
-        if (data == null || data.Length != 1 + Pstr.Length + ReservedLen + 20 + 20)
+        if (data == null || data.Length != Length)
             throw new ArgumentException("bad handshake: wrong length");
 
         int pstrlen = data[0];

@@ -22,19 +22,39 @@ public class Peer
 
     public async Task Connect(string ourPeerId, byte[] infoHash)
     {
-        System.Console.WriteLine($"{ToString()}: init connection");
+        // todo timeout?
+        Log($"init connection");
         Conn = new TcpClient();
         await Conn.ConnectAsync(new IPEndPoint(Address, Port));
-        System.Console.WriteLine($"{ToString()}:       connected");
-        var handshake = Protocol.Handshake(infoHash, ourPeerId);
+        Log("connected");
+        var ourHand = new Handshake(infoHash, ourPeerId);
         await using NetworkStream stream = Conn.GetStream();
-        await stream.WriteAsync(handshake);
-        System.Console.WriteLine($"{ToString()}: wrote handshake");
+        await stream.WriteAsync(ourHand.Serialize());
+        Log("wrote handshake");
+
+        var readBuffer = new byte[Handshake.Length];
+        await stream.ReadExactlyAsync(readBuffer);
+        var theirHand = new Handshake(readBuffer);
+        var hashMatches = ourHand.InfoHash.SequenceEqual(theirHand.InfoHash);
+        if (!hashMatches)
+        {
+            Log("hash mismatch, disconnecting");
+            Conn.Close();
+            return;
+        }
+        Log($"hello {theirHand.PeerId}");
+        PeerId = theirHand.PeerId;
+
         // var bitfield = await ReadBitfield();
     }
 
     override public string ToString()
     {
         return $"{Address}:{Port}";
+    }
+
+    private void Log(string message)
+    {
+        Console.WriteLine($"{PeerId ?? ToString()}:{message,25}");
     }
 }
