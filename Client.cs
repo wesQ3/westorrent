@@ -66,9 +66,11 @@ public class Client
         {
             await Peers[0].Connect(PeerId, Torrent.InfoHash);
         }
-        // while (Torrent.HasMissingPieces())
+        // var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+        // while (await timer.WaitForNextTickAsync() && Torrent.HasMissingPieces())
         // {
         //     // start download tasks
         // }
+        // assemble file from pieces
     }
 }
