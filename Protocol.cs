@@ -60,13 +60,19 @@ class Protocol
         var expectedBytes = (int)Math.Ceiling(count / 8.0);
         if (payload.Length != expectedBytes)
             throw new ArgumentException($"bitfield length {payload.Length} != piece count {count} ({expectedBytes})");
-        
-        // payload has high-bit = 0 (bigendian) so reverse each byte for linear array
-        var bits = payload.Select(b => new BitArray(b).Cast<bool>().Reverse().ToArray())
-            .SelectMany(b => b) // flatten array of arrays
-            .ToArray();
 
-        return new BitArray(bits);
+        var bits = new BitArray(count);
+        for (int i = 0; i < payload.Length; i++)
+        {
+            var b = payload[i];
+            for (int j = 7; j >= 0; j--)
+            {
+                var bindex = 7-j + i*8;
+                if (bindex > count - 1) break;
+                bits[bindex] = (b & (1 << j)) != 0;
+            }
+        }
+        return bits;
     }
 }
 
