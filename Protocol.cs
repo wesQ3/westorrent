@@ -1,6 +1,7 @@
 using System.Web;
 using System.Text;
-using System.Runtime.Serialization;
+using System.Buffers.Binary;
+using System.Collections;
 
 class Protocol
 {
@@ -22,6 +23,11 @@ class Protocol
         return uri.ToString();
     }
 
+    private static string EncodeInfoHash(byte[] infoHash)
+    {
+        return string.Join("", infoHash.Select(x => "%" + x.ToString("X2")));
+    }
+
     public static (int, List<Peer>) ParseAnnounceResponse(byte[] bytes)
     {
         using var fs = File.OpenWrite("../last-announce-reponse.dat");
@@ -34,24 +40,44 @@ class Protocol
         return (interval, peerList);
     }
 
-    public static byte[] Handshake(byte[] infoHash, string peerId)
+    public static async Task<Message> ReadMessage(Stream stream)
     {
-        return new Handshake(infoHash, peerId).Serialize();
+        var lenbuf = new byte[4];
+        await stream.ReadExactlyAsync(lenbuf);
+        var msgLen = BinaryPrimitives.ReadUInt32BigEndian(lenbuf);
+        if (msgLen == 0)
+            return new Message(); // keepalive
+
+        var msgBuf = new byte[msgLen];
+        await stream.ReadExactlyAsync(msgBuf);
+
+        return new Message((Message.Id)msgBuf[0], msgBuf[1..]);
+
     }
 
-    private static string EncodeInfoHash(byte[] infoHash)
+    public static BitArray ParseBitfield(byte[] payload, int count)
     {
-        return string.Join("", infoHash.Select(x => "%" + x.ToString("X2")));
+        var expectedBytes = (int)Math.Ceiling(count / 8.0);
+        if (payload.Length != expectedBytes)
+            throw new ArgumentException($"bitfield length {payload.Length} != piece count {count} ({expectedBytes})");
+        
+        // payload has high-bit = 0 (bigendian) so reverse each byte for linear array
+        var bits = payload.Select(b => new BitArray(b).Cast<bool>().Reverse().ToArray())
+            .SelectMany(b => b) // flatten array of arrays
+            .ToArray();
+
+        return new BitArray(bits);
     }
 }
 
-class Handshake {
+class Handshake
+{
     // handshake: <pstrlen><pstr><reservedx8><info_hash><peer_id>
     const string Pstr = "BitTorrent protocol";
     const int ReservedLen = 8;
     public const int Length = 68; // 1 + Pstr.Length + ReservedLen + 20 + 20;
-    public string PeerId {get; set;}
-    public byte[] InfoHash {get; set;}
+    public string PeerId { get; set; }
+    public byte[] InfoHash { get; set; }
 
     public Handshake(byte[] infoHash, string peerId)
     {

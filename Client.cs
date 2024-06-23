@@ -64,7 +64,7 @@ public class Client
         Peers = newPeers;
         if (Peers.Count > 0)
         {
-            await Peers[0].Connect(PeerId, Torrent.InfoHash);
+            await Peers[0].Connect(PeerId, Torrent);
         }
         // var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
         // while (await timer.WaitForNextTickAsync() && Torrent.HasMissingPieces())
