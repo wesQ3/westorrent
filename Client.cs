@@ -18,7 +18,7 @@ public class Client
         Console.WriteLine($"new client {PeerId}");
     }
 
-    private string RandomPeerId()
+    public static string RandomPeerId()
     {
         var rand = new Random();
         var randbytes = new byte[6].Select(b => (byte)rand.Next(256)).ToArray();
