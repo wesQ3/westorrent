@@ -10,6 +10,7 @@ public class Peer
 
     // connected peer info
     TcpClient? Conn { get; set; }
+    private Stream Stream { get; set; }
     bool? IsChoked { get; set; }
     string? PeerId { get; set; }
     BitArray? Pieces { get; set; }
@@ -39,10 +40,9 @@ public class Peer
             await Connect(ourPeerId, torrent);
         }
 
-        await using NetworkStream stream = Conn.GetStream();
-        while (stream.CanRead)
+        while (Stream.CanRead)
         {
-            var nextMsg = await Protocol.ReadMessage(stream);
+            var nextMsg = await Protocol.ReadMessage(Stream);
             if (nextMsg.MessageId == Message.Id.Bitfield && nextMsg.Payload != null)
             {
                 Log($"recieved bitfield");
@@ -62,12 +62,12 @@ public class Peer
         {
             // todo timeout?
             var ourHand = new Handshake(torrent.InfoHash, ourPeerId);
-            await using NetworkStream stream = Conn.GetStream();
-            await stream.WriteAsync(ourHand.Serialize());
+            Stream = Conn.GetStream();
+            await Stream.WriteAsync(ourHand.Serialize());
             Log("wrote handshake");
 
             var readBuffer = new byte[Handshake.Length];
-            await stream.ReadAsync(readBuffer);
+            await Stream.ReadAsync(readBuffer);
             var theirHand = new Handshake(readBuffer);
             var hashMatches = ourHand.InfoHash.SequenceEqual(theirHand.InfoHash);
             if (!hashMatches)
