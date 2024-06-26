@@ -5,7 +5,7 @@ var tor = new Torrent(torrentFile);
 // var client = new Client(tor);
 // await client.DownloadToFile(outFile);
 var localQBT = new Peer("127.0.0.1", 33854);
-await localQBT.Start(Client.RandomPeerId(), tor);
+await localQBT.StartDownload(Client.RandomPeerId(), tor);
 
 string? GetArg(string label)
 {

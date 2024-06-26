@@ -7,10 +7,12 @@ public class Peer
     // tracker provided info
     IPAddress Address { get; set; }
     int Port { get; set; }
+    Torrent? TorrentInfo { get; set; }
 
     // connected peer info
     TcpClient? Conn { get; set; }
-    private Stream Stream { get; set; }
+    private Stream? Stream { get; set; }
+    private CancellationTokenSource Canceller;
     bool? IsChoked { get; set; }
     string? PeerId { get; set; }
     BitArray? Pieces { get; set; }
@@ -22,46 +24,81 @@ public class Peer
 
         Address = new IPAddress(bytes[0..4]);
         Port = (bytes[4] << 8) + bytes[5];
+        Canceller = new();
     }
 
     public Peer(string ip, int port)
     {
         Address = IPAddress.Parse(ip);
         Port = port;
+        Canceller = new();
     }
-    public async Task Start(string ourPeerId, Torrent torrent)
-    {
-        if (Conn == null)
-        {
-            Log($"init connection");
-            Conn = new TcpClient();
-            await Conn.ConnectAsync(new IPEndPoint(Address, Port));
-            Log("connected");
-            await Connect(ourPeerId, torrent);
-        }
 
-        while (Stream.CanRead)
+    public async Task StartDownload(string ourPeerId, Torrent torrent)
+    {
+        TorrentInfo = torrent;
+        await Connect(ourPeerId);
+        var receiveTask = ReceiveMessages(Canceller.Token);
+        var keepAliveTask = SendKeepAlives(Canceller.Token);
+
+        await Task.WhenAll(receiveTask, keepAliveTask);
+    }
+
+    private async Task ReceiveMessages(CancellationToken cancel)
+    {
+        while (!cancel.IsCancellationRequested)
         {
             var nextMsg = await Protocol.ReadMessage(Stream);
-            if (nextMsg.MessageId == Message.Id.Bitfield && nextMsg.Payload != null)
-            {
-                Log($"recieved bitfield");
-                Log(Convert.ToHexString(nextMsg.Payload));
-                Pieces = Protocol.ParseBitfield(nextMsg.Payload, torrent.Pieces.Count);
-            }
-            else
-            {
-                Log($"other message: {nextMsg.MessageId}");
-            }
+            HandleMessage(nextMsg);
         }
     }
 
-    public async Task Connect(string ourPeerId, Torrent torrent)
+    private void HandleMessage(Message msg)
+    {
+        Log($"< {msg}");
+        switch (msg.MessageId)
+        {
+            case null:
+                break; // keep-alive
+            case Message.Id.Bitfield:
+                Pieces = Protocol.ParseBitfield(msg.Payload, TorrentInfo.Pieces.Count);
+                break;
+            default:
+                Log($"!! Unhandled: {msg.MessageId}");
+                break;
+        }
+    }
+
+    private async Task SendKeepAlives(CancellationToken cancel)
+    {
+        while (!cancel.IsCancellationRequested)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(60), cancel);
+
+            var keepAliveMessage = new Message().Serialize();
+            await Stream.WriteAsync(keepAliveMessage, 0, keepAliveMessage.Length, cancel);
+
+            Log("> KeepAlive");
+        }
+    }
+
+    public void Stop()
+    {
+        Canceller.Cancel();
+        Stream.Close();
+        Conn.Close();
+    }
+
+    public async Task Connect(string ourPeerId)
     {
         try
         {
             // todo timeout?
-            var ourHand = new Handshake(torrent.InfoHash, ourPeerId);
+            Log($"init connection");
+            Conn = new TcpClient();
+            await Conn.ConnectAsync(new IPEndPoint(Address, Port));
+            Log("connected");
+            var ourHand = new Handshake(TorrentInfo.InfoHash, ourPeerId);
             Stream = Conn.GetStream();
             await Stream.WriteAsync(ourHand.Serialize());
             Log("wrote handshake");
@@ -97,6 +134,6 @@ public class Peer
 
     private void Log(string message)
     {
-        Console.WriteLine($"{PeerId ?? ToString()}:{message,25}");
+        Console.WriteLine($"{PeerId ?? ToString(),20}:{message,30}");
     }
 }

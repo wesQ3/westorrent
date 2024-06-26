@@ -41,4 +41,19 @@ public class Message
 
         return buf;
     }
+
+    public override string ToString()
+    {
+        switch (MessageId)
+        {
+            case null:
+                return "KeepAlive:0";
+            case Id.Bitfield:
+            case Id.Choke:
+            case Id.Unchoke:
+                return $"{MessageId}:{Payload?.Length}";
+            default:
+                return $"{MessageId}:{BitConverter.ToString(Payload ?? [])}";
+        }
+    }
 }
