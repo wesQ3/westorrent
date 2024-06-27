@@ -5,6 +5,7 @@ public class Client
     List<Peer> Peers {get; set;}
     Torrent Torrent {get; set;}
     string PeerId {get; set;}
+    private CancellationTokenSource Canceller;
 
     const string ClientId = "WB";
     const string Version = "0001";
@@ -15,6 +16,7 @@ public class Client
         Peers = [];
         Torrent = tor;
         PeerId = RandomPeerId();
+        Canceller = new();
         Console.WriteLine($"new client {PeerId}");
     }
 
@@ -24,9 +26,10 @@ public class Client
         var randbytes = new byte[6].Select(b => (byte)rand.Next(256)).ToArray();
         return $"-{ClientId}{Version}-{Convert.ToHexString(randbytes)}";
     }
-    public void Start()
+    public async Task Start()
     {
-        SetupAnnounceTimer();
+        var announceTask = AnnounceTimer(Canceller.Token);
+        await Task.WhenAll(announceTask);
     }
 
     public async Task<(int, List<Peer>)> Announce()
@@ -46,10 +49,10 @@ public class Client
         return Protocol.ParseAnnounceResponse(resContent);
     }
 
-    public async void SetupAnnounceTimer()
+    public async Task AnnounceTimer(CancellationToken cancel)
     {
         var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
-        while (await timer.WaitForNextTickAsync())
+        while (await timer.WaitForNextTickAsync(cancel) && !cancel.IsCancellationRequested)
         {
             (var interval, var newPeers) = await Announce();
             timer = new PeriodicTimer(TimeSpan.FromSeconds(interval));
@@ -60,13 +63,8 @@ public class Client
 
     public async Task DownloadToFile(string outFile)
     {
-        (_, var newPeers) = await Announce();
-        Peers = newPeers;
-        if (Peers.Count > 0)
-        {
-            await Peers[0].Connect(PeerId);
-        }
-        // var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+        var mainTasks = Start();
+        var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
         // while (await timer.WaitForNextTickAsync() && Torrent.HasMissingPieces())
         // {
         //     // start download tasks
