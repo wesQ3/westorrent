@@ -60,9 +60,19 @@ public class Peer
         {
             case null:
                 break; // keep-alive
+            case Message.Id.Choke:
+                IsChoked = true;
+                break;
+            case Message.Id.Unchoke:
+                IsChoked = false;
+                break;
             case Message.Id.Bitfield:
                 Pieces = Protocol.ParseBitfield(msg.Payload, TorrentInfo.Pieces.Count);
                 break;
+            case Message.Id.Interested:
+            case Message.Id.NotInterested:
+            case Message.Id.Port:
+                break; // ignore
             default:
                 Log($"!! Unhandled: {msg.MessageId}");
                 break;
