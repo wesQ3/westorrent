@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 
 public class Peer
 {
@@ -13,7 +14,8 @@ public class Peer
     TcpClient? Conn { get; set; }
     private Stream? Stream { get; set; }
     private CancellationTokenSource Canceller;
-    bool? IsChoked { get; set; }
+    bool? IsChokingUs { get; set; }
+    bool? IsInterestingToUs { get; set; }
     string? PeerId { get; set; }
     BitArray? Pieces { get; set; }
 
@@ -34,12 +36,16 @@ public class Peer
         Canceller = new();
     }
 
-    public async Task StartDownload(string ourPeerId, Torrent torrent)
+    public async Task StartConnection(string ourPeerId, Torrent torrent)
     {
         TorrentInfo = torrent;
         await Connect(ourPeerId);
         var receiveTask = ReceiveMessages(Canceller.Token);
         var keepAliveTask = SendKeepAlives(Canceller.Token);
+        // NOTE test message send
+        await Task.Delay(TimeSpan.FromSeconds(2));
+        IsInterestingToUs = true;
+        await SendMessage(new Message(Message.Id.Interested, []), Canceller.Token);
 
         await Task.WhenAll(receiveTask, keepAliveTask);
     }
@@ -49,11 +55,11 @@ public class Peer
         while (!cancel.IsCancellationRequested)
         {
             var nextMsg = await Protocol.ReadMessage(Stream);
-            HandleMessage(nextMsg);
+            await HandleMessage(nextMsg);
         }
     }
 
-    private void HandleMessage(Message msg)
+    private async Task HandleMessage(Message msg)
     {
         Log($"< {msg}");
         switch (msg.MessageId)
@@ -61,13 +67,25 @@ public class Peer
             case null:
                 break; // keep-alive
             case Message.Id.Choke:
-                IsChoked = true;
+                IsChokingUs = true;
                 break;
             case Message.Id.Unchoke:
-                IsChoked = false;
+                IsChokingUs = false;
+                // NOTE testing Request/Piece
+                if (IsInterestingToUs ?? false)
+                {
+                    var size = 16*1024;
+                    await SendMessage(Message.Request(0,       0,size), Canceller.Token);
+                    await SendMessage(Message.Request(0,1 * size,size), Canceller.Token);
+                    await SendMessage(Message.Request(0,2 * size,size), Canceller.Token);
+                }
                 break;
             case Message.Id.Bitfield:
                 Pieces = Protocol.ParseBitfield(msg.Payload, TorrentInfo.Pieces.Count);
+                break;
+            case Message.Id.Piece:
+                var sha = SHA1.HashData(msg.Payload);
+                Log(Convert.ToHexString(sha));
                 break;
             case Message.Id.Interested:
             case Message.Id.NotInterested:
@@ -85,11 +103,16 @@ public class Peer
         {
             await Task.Delay(TimeSpan.FromSeconds(60), cancel);
 
-            var keepAliveMessage = new Message().Serialize();
-            await Stream.WriteAsync(keepAliveMessage, 0, keepAliveMessage.Length, cancel);
-
-            Log("> KeepAlive");
+            var keepAliveMessage = new Message();
+            await SendMessage(keepAliveMessage, cancel);
         }
+    }
+
+    public async Task SendMessage(Message msg, CancellationToken cancel)
+    {
+        var bytes = msg.Serialize();
+        await Stream.WriteAsync(bytes, 0, bytes.Length, cancel);
+        Log($"> {msg}");
     }
 
     public void Stop()

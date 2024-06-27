@@ -51,9 +51,18 @@ public class Message
             case Id.Bitfield:
             case Id.Choke:
             case Id.Unchoke:
+            case Id.Piece:
                 return $"{MessageId}:{Payload?.Length}";
             default:
                 return $"{MessageId}:{BitConverter.ToString(Payload ?? [])}";
         }
+    }
+    public static Message Request(int index, int begin, int length)
+    {
+        var payload = new byte[12];
+        BinaryPrimitives.WriteInt32BigEndian(payload.AsSpan(0,4), index);
+        BinaryPrimitives.WriteInt32BigEndian(payload.AsSpan(4,4), begin);
+        BinaryPrimitives.WriteInt32BigEndian(payload.AsSpan(8,4), length);
+        return new Message(Id.Request, payload);
     }
 }
