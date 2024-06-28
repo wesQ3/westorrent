@@ -57,6 +57,7 @@ public class Message
                 return $"{MessageId}:{BitConverter.ToString(Payload ?? [])}";
         }
     }
+
     public static Message Request(int index, int begin, int length)
     {
         var payload = new byte[12];

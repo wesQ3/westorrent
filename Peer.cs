@@ -18,6 +18,7 @@ public class Peer
     bool? IsInterestingToUs { get; set; }
     string? PeerId { get; set; }
     BitArray? Pieces { get; set; }
+    byte[] CurrentPiece;
 
     public Peer(byte[] bytes)
     {
@@ -39,6 +40,7 @@ public class Peer
     public async Task StartConnection(string ourPeerId, Torrent torrent)
     {
         TorrentInfo = torrent;
+        CurrentPiece = new byte[torrent.PieceLength];
         await Connect(ourPeerId);
         var receiveTask = ReceiveMessages(Canceller.Token);
         var keepAliveTask = SendKeepAlives(Canceller.Token);
@@ -74,7 +76,7 @@ public class Peer
                 // NOTE testing Request/Piece
                 if (IsInterestingToUs ?? false)
                 {
-                    var size = 16*1024;
+                    var size = 16*1024; // need 32
                     await SendMessage(Message.Request(0,       0,size), Canceller.Token);
                     await SendMessage(Message.Request(0,1 * size,size), Canceller.Token);
                     await SendMessage(Message.Request(0,2 * size,size), Canceller.Token);
@@ -86,6 +88,9 @@ public class Peer
             case Message.Id.Piece:
                 var sha = SHA1.HashData(msg.Payload);
                 Log(Convert.ToHexString(sha));
+                var written = Protocol.ParsePiece(0, CurrentPiece, msg.Payload);
+                // Log(Convert.ToHexString(CurrentPiece));
+                Log($"wrote {written}");
                 break;
             case Message.Id.Interested:
             case Message.Id.NotInterested:

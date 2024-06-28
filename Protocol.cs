@@ -74,6 +74,26 @@ class Protocol
         }
         return bits;
     }
+
+    // Piece is just one chunk of a piece actually so copy into a buffer that
+    // will eventually hold the whole piece
+    public static int ParsePiece(int pieceId, byte[] target, byte[] payload)
+    {
+        var index = BinaryPrimitives.ReadUInt32BigEndian(payload[0..4]);
+        if (pieceId != index)
+            return 0; // not the expected piece
+
+        var begin = BinaryPrimitives.ReadUInt32BigEndian(payload[4..8]);
+        if (begin > target.Length)
+            return 0; // begin outside expected range
+        
+        var data = payload[8..];
+        if (begin + data.Length > target.Length)
+            return 0; // data too long for target span
+
+        Array.Copy(data, 0, target, (int)begin, data.Length);
+        return data.Length;
+    }
 }
 
 class Handshake
