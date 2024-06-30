@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 
 public class Torrent
 {
-    public long Size { get; set; }
+    public int Size { get; set; }
     public string Tracker { get; set; }
     public string Filename { get; set; }
     public int PieceLength { get; set; }
@@ -30,6 +30,21 @@ public class Torrent
         Console.WriteLine($"  pieces:   {Pieces.Count}");
         InfoHash = GetInfoHash(bytes);
         Console.WriteLine($"  infohash: {Convert.ToHexString(InfoHash)}");
+    }
+
+    public (int begin, int end) PieceBounds(int pieceId)
+    {
+        int begin = pieceId * PieceLength;
+        int end = begin + PieceLength;
+        if (end > Size)
+            end = Size;
+        return (begin, end);
+    }
+
+    public int PieceSize(int pieceId)
+    {
+        (var begin, var end) = PieceBounds(pieceId);
+        return end - begin;
     }
 
     public static byte[] ReadInfo(byte[] bytes)

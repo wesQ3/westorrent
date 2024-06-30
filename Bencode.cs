@@ -15,12 +15,12 @@ public class Bencode
         return Encoding.ASCII.GetString(ReadBytes(bytes, label));
     }
 
-    public static long ReadInt(byte[] bytes, string label)
+    public static int ReadInt(byte[] bytes, string label)
     {
         var loc = FindSequence(bytes, label);
         // i262144e
         var intBytes = bytes.Skip(loc + 1).TakeWhile((b, check) => b != 0x65).ToArray();
-        return long.Parse(Encoding.ASCII.GetString(intBytes));
+        return int.Parse(Encoding.ASCII.GetString(intBytes));
     }
 
     public static int FindSequence(byte[] bytes, string label)
