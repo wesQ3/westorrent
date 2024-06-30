@@ -89,15 +89,15 @@ public class Peer
                 // NOTE testing Request/Piece
                 if (IsInterestingToUs ?? false)
                 {
-                    await DownloadPiece(0, Canceller.Token);
+                    var targetPiece = 0;
+                    await DownloadPiece(targetPiece, Canceller.Token);
+                    VerifyPiece(targetPiece);
                 }
                 break;
             case Message.Id.Bitfield:
                 Pieces = Protocol.ParseBitfield(msg.Payload, TorrentInfo.Pieces.Count);
                 break;
             case Message.Id.Piece:
-                var sha = SHA1.HashData(msg.Payload);
-                Log(Convert.ToHexString(sha));
                 var written = Protocol.ParsePiece(0, CurrentPiece, msg.Payload);
                 // Log(Convert.ToHexString(CurrentPiece));
                 CurrentBytesDownloaded += written;
@@ -139,6 +139,23 @@ public class Peer
                 }
             }
             await ReceiveMessage(cancel);
+        }
+    }
+
+    private bool VerifyPiece(int targetPiece)
+    {
+        var sha = SHA1.HashData(CurrentPiece);
+        if (TorrentInfo.Pieces[targetPiece].SequenceEqual(sha))
+        {
+            Log($"Piece {targetPiece} hash ok!");
+            return true;
+        }
+        else
+        {
+            Log($"Piece download failed; hash mismatch");
+            Log($"Target: {Convert.ToHexString(TorrentInfo.Pieces[targetPiece])}");
+            Log($"Dl:     {Convert.ToHexString(sha)}");
+            return false;
         }
 
     }
