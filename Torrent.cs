@@ -16,6 +16,13 @@ public class Torrent
         Console.WriteLine($"  file size {bytes.Length}");
         if (bytes[0] != 0x64)
             throw new InvalidDataException();
+        
+        var isMultiFile = false;
+        try {
+            isMultiFile = Bencode.FindSequence(bytes, "5:files") > 0;
+        } catch {}
+        if (isMultiFile)
+            throw new InvalidDataException("can't do multifile yet");
 
         Tracker = Bencode.ReadString(bytes, "8:announce");
         Console.WriteLine($"  tracker:  {Tracker}");
