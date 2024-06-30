@@ -19,7 +19,8 @@ public class Peer
     string? PeerId { get; set; }
     BitArray? Pieces { get; set; }
 
-    byte[] CurrentPiece;
+    int CurrentPieceId;
+    byte[] CurrentPieceBytes;
     int OpenRequests;
     int OpenBytesRequested;
     int CurrentBytesDownloaded;
@@ -47,7 +48,7 @@ public class Peer
     public async Task StartConnection(string ourPeerId, Torrent torrent)
     {
         TorrentInfo = torrent;
-        CurrentPiece = new byte[torrent.PieceLength];
+        CurrentPieceBytes = new byte[torrent.PieceLength];
         await Connect(ourPeerId);
         var receiveTask = ReceiveMessages(Canceller.Token);
         var keepAliveTask = SendKeepAlives(Canceller.Token);
@@ -92,13 +93,16 @@ public class Peer
                     var targetPiece = 0;
                     await DownloadPiece(targetPiece, Canceller.Token);
                     VerifyPiece(targetPiece);
+                    targetPiece = TorrentInfo.Pieces.Count - 1;
+                    await DownloadPiece(targetPiece, Canceller.Token);
+                    VerifyPiece(targetPiece);
                 }
                 break;
             case Message.Id.Bitfield:
                 Pieces = Protocol.ParseBitfield(msg.Payload, TorrentInfo.Pieces.Count);
                 break;
             case Message.Id.Piece:
-                var written = Protocol.ParsePiece(0, CurrentPiece, msg.Payload);
+                var written = Protocol.ParsePiece(CurrentPieceId, CurrentPieceBytes, msg.Payload);
                 // Log(Convert.ToHexString(CurrentPiece));
                 CurrentBytesDownloaded += written;
                 OpenRequests--;
@@ -117,7 +121,8 @@ public class Peer
     private async Task DownloadPiece(int pieceId, CancellationToken cancel)
     {
         var pieceSize = TorrentInfo.PieceSize(pieceId);
-        CurrentPiece = new byte[pieceSize];
+        CurrentPieceId = pieceId;
+        CurrentPieceBytes = new byte[pieceSize];
         CurrentBytesDownloaded = 0;
         OpenRequests = 0;
         OpenBytesRequested = 0;
@@ -144,7 +149,7 @@ public class Peer
 
     private bool VerifyPiece(int targetPiece)
     {
-        var sha = SHA1.HashData(CurrentPiece);
+        var sha = SHA1.HashData(CurrentPieceBytes);
         if (TorrentInfo.Pieces[targetPiece].SequenceEqual(sha))
         {
             Log($"Piece {targetPiece} hash ok!");
