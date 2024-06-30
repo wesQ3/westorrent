@@ -40,10 +40,10 @@ class Protocol
         return (interval, peerList);
     }
 
-    public static async Task<Message> ReadMessage(Stream stream)
+    public static async Task<Message> ReadMessage(Stream stream, CancellationToken cancel)
     {
         var lenbuf = new byte[4];
-        await stream.ReadExactlyAsync(lenbuf);
+        await stream.ReadExactlyAsync(lenbuf, cancel);
         var msgLen = BinaryPrimitives.ReadUInt32BigEndian(lenbuf);
         if (msgLen == 0)
             return new Message(); // keepalive

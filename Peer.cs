@@ -18,7 +18,14 @@ public class Peer
     bool? IsInterestingToUs { get; set; }
     string? PeerId { get; set; }
     BitArray? Pieces { get; set; }
+
     byte[] CurrentPiece;
+    int OpenRequests;
+    int OpenBytesRequested;
+    int CurrentBytesDownloaded;
+
+    const int MAX_BLOCK_SIZE = 16384;
+    const int MAX_OPEN_REQUESTS = 5;
 
     public Peer(byte[] bytes)
     {
@@ -56,9 +63,15 @@ public class Peer
     {
         while (!cancel.IsCancellationRequested)
         {
-            var nextMsg = await Protocol.ReadMessage(Stream);
-            await HandleMessage(nextMsg);
+            await ReceiveMessage(cancel);
         }
+    }
+
+    private async Task ReceiveMessage(CancellationToken cancel)
+    {
+        var nextMsg = await Protocol.ReadMessage(Stream, cancel);
+        await HandleMessage(nextMsg);
+
     }
 
     private async Task HandleMessage(Message msg)
@@ -76,10 +89,7 @@ public class Peer
                 // NOTE testing Request/Piece
                 if (IsInterestingToUs ?? false)
                 {
-                    var size = 16*1024; // need 32
-                    await SendMessage(Message.Request(0,       0,size), Canceller.Token);
-                    await SendMessage(Message.Request(0,1 * size,size), Canceller.Token);
-                    await SendMessage(Message.Request(0,2 * size,size), Canceller.Token);
+                    await DownloadPiece(0, Canceller.Token);
                 }
                 break;
             case Message.Id.Bitfield:
@@ -90,7 +100,9 @@ public class Peer
                 Log(Convert.ToHexString(sha));
                 var written = Protocol.ParsePiece(0, CurrentPiece, msg.Payload);
                 // Log(Convert.ToHexString(CurrentPiece));
-                Log($"wrote {written}");
+                CurrentBytesDownloaded += written;
+                OpenRequests--;
+                Log($"wrote {written} - {CurrentBytesDownloaded}");
                 break;
             case Message.Id.Interested:
             case Message.Id.NotInterested:
@@ -99,6 +111,44 @@ public class Peer
             default:
                 Log($"!! Unhandled: {msg.MessageId}");
                 break;
+        }
+    }
+
+    private async Task DownloadPiece(int pieceId, CancellationToken cancel)
+    {
+        var pieceSize = TorrentInfo.PieceSize(pieceId);
+        CurrentPiece = new byte[pieceSize];
+        CurrentBytesDownloaded = 0;
+        OpenRequests = 0;
+        OpenBytesRequested = 0;
+        
+        while (CurrentBytesDownloaded < pieceSize)
+        {
+            if (!IsChokingUs ?? false)
+            {
+                // pipeline multiple open reqs
+                while (OpenRequests < MAX_OPEN_REQUESTS && OpenBytesRequested < pieceSize)
+                {
+                    // last request can be smaller than MAX_BLOCK
+                    int remainingBytes = pieceSize - OpenBytesRequested;
+                    int requestSize = remainingBytes < MAX_BLOCK_SIZE ? remainingBytes : MAX_BLOCK_SIZE;
+
+                    await SendMessage(Message.Request(pieceId, OpenBytesRequested, requestSize), cancel);
+                    OpenRequests++;
+                    OpenBytesRequested += requestSize;
+                }
+            }
+            await ReceiveMessage(cancel);
+        }
+
+    }
+
+    private async Task SendMessages(CancellationToken cancel)
+    {
+        while (!cancel.IsCancellationRequested)
+        {
+            // var nextMsg = await SendMessage(msg, cancel);
+            // await HandleMessage(nextMsg);
         }
     }
 
