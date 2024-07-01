@@ -90,12 +90,8 @@ public class Peer
                 // NOTE testing Request/Piece
                 if (IsInterestingToUs ?? false)
                 {
-                    var targetPiece = 0;
-                    await DownloadPiece(targetPiece, Canceller.Token);
-                    VerifyPiece(targetPiece);
-                    targetPiece = TorrentInfo.Pieces.Count - 1;
-                    await DownloadPiece(targetPiece, Canceller.Token);
-                    VerifyPiece(targetPiece);
+                    await GetPiece(0);
+                    await GetPiece(TorrentInfo.Pieces.Count - 1);
                 }
                 break;
             case Message.Id.Bitfield:
@@ -106,7 +102,7 @@ public class Peer
                 // Log(Convert.ToHexString(CurrentPiece));
                 CurrentBytesDownloaded += written;
                 OpenRequests--;
-                Log($"wrote {written} - {CurrentBytesDownloaded}");
+                // Log($"wrote {written} - {CurrentBytesDownloaded}");
                 break;
             case Message.Id.Interested:
             case Message.Id.NotInterested:
@@ -116,6 +112,15 @@ public class Peer
                 Log($"!! Unhandled: {msg.MessageId}");
                 break;
         }
+    }
+
+    public async Task<byte[]> GetPiece(int pieceId)
+    {
+        await DownloadPiece(pieceId, Canceller.Token);
+        VerifyPiece(pieceId);
+        await SendMessage(Message.Have(pieceId), Canceller.Token);
+        var completePiece = CurrentPieceBytes;
+        return completePiece;
     }
 
     private async Task DownloadPiece(int pieceId, CancellationToken cancel)

@@ -26,6 +26,13 @@ public class Message
         Payload = payload;
     }
 
+    public static Message Have(int pieceId)
+    {
+        var payload = new byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(payload, (uint)pieceId);
+        return new Message(Id.Have, payload);
+    }
+
     public byte[] Serialize()
     {
         if (MessageId == null)
@@ -34,7 +41,7 @@ public class Message
         // <length prefix><message ID><payload>
         var len = 1 + (Payload?.Length ?? 0); // id + payload
         var buf = new byte[4 + len];
-        BinaryPrimitives.WriteInt32BigEndian(buf.AsSpan(0,4), len);
+        BinaryPrimitives.WriteUInt32BigEndian(buf.AsSpan(0,4), (uint)len);
         buf[4] = (byte)MessageId;
         if (Payload != null)
             Array.Copy(Payload, 0, buf, 5, Payload.Length);
