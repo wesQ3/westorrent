@@ -120,6 +120,7 @@ public class Peer
         VerifyPiece(pieceId);
         await SendMessage(Message.Have(pieceId), Canceller.Token);
         var completePiece = CurrentPieceBytes;
+        CurrentPieceId = -1; // clear current work
         return completePiece;
     }
 
@@ -241,6 +242,15 @@ public class Peer
     }
 
     public bool IsReady() => PeerId != null;
+
+    public bool HasPiece(int pieceId)
+    {
+        if (Pieces == null)
+            return false;
+        return Pieces[pieceId];
+    }
+
+    public bool IsBusy() => CurrentPieceId >= 0;
 
     override public string ToString()
     {

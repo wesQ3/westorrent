@@ -2,21 +2,27 @@ using System.Text;
 
 public class Client
 {
-    List<Peer> Peers {get; set;}
-    Torrent Torrent {get; set;}
-    string PeerId {get; set;}
+    List<Peer> Peers { get; set; }
+    Torrent Torrent { get; set; }
+    string PeerId { get; set; }
     private CancellationTokenSource Canceller;
+    private List<int> RemainingPieces;
+    private Random Rand;
 
     const string ClientId = "WB";
     const string Version = "0001";
     const int MAX_PEERS_CONNECTED = 10;
 
-    public Client (Torrent tor)
+    public Client(Torrent tor)
     {
         Peers = [];
         Torrent = tor;
         PeerId = RandomPeerId();
         Canceller = new();
+        Rand = new Random();
+        var indexes = Enumerable.Range(0, tor.Pieces.Count).ToArray();
+        Rand.Shuffle(indexes);
+        RemainingPieces = [.. indexes];
         Console.WriteLine($"new client {PeerId}");
     }
 
@@ -28,8 +34,9 @@ public class Client
     }
     public async Task Start()
     {
-        var announceTask = AnnounceTimer(Canceller.Token);
-        await Task.WhenAll(announceTask);
+        var announceTask = AnnounceTimer();
+        var dispatchTask = AssignPieces();
+        await Task.WhenAll(announceTask, dispatchTask);
     }
 
     public async Task<(int, List<Peer>)> Announce()
@@ -49,8 +56,9 @@ public class Client
         return Protocol.ParseAnnounceResponse(resContent);
     }
 
-    public async Task AnnounceTimer(CancellationToken cancel)
+    public async Task AnnounceTimer()
     {
+        var cancel = Canceller.Token;
         var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
         while (await timer.WaitForNextTickAsync(cancel) && !cancel.IsCancellationRequested)
         {
@@ -58,6 +66,27 @@ public class Client
             timer = new PeriodicTimer(TimeSpan.FromSeconds(interval));
             Peers = newPeers;
             // todo merge peers
+        }
+    }
+
+    public async Task AssignPieces()
+    {
+        while (RemainingPieces.Count > 0)
+        {
+            var next = RemainingPieces[0];
+            var havers = Peers.Where(p => p.HasPiece(next))
+                .Where(p => !p.IsBusy())
+                .ToArray();
+
+            if (havers.Length > 0)
+            {
+                Rand.Shuffle(havers);
+                var dlTask = havers[0].GetPiece(next);
+                // .then
+                //  RemainingPieces.Remove(next);
+            }
+
+            await Task.Delay(2*1000);
         }
     }
 
