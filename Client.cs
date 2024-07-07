@@ -103,6 +103,7 @@ public class Client
             if (havers.Length > 0 && InFlight.Count < MAX_PEERS_CONNECTED)
             {
                 Rand.Shuffle(havers);
+                await havers[0].SetInterested();
                 var dlTask = GetPiece(havers[0], next);
                 InFlight.Add(dlTask);
             }
@@ -113,7 +114,9 @@ public class Client
 
     public async Task GetPiece(Peer peer, int pieceId)
     {
+        Log($"assign   {peer}: {pieceId}");
         await peer.GetPiece(pieceId);
+        Log($"complete {peer}: {pieceId}");
         RemainingPieces.Remove(pieceId);
         // write piece to buffer/file storage
     }
@@ -123,5 +126,10 @@ public class Client
         var mainTasks = Start();
         await AssignPieces();
         // assemble file from pieces
+    }
+
+    private void Log(string message)
+    {
+        Console.WriteLine($"{message}");
     }
 }

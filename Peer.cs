@@ -55,12 +55,15 @@ public class Peer
         await Connect(ourPeerId);
         var receiveTask = ReceiveMessages(Canceller.Token);
         var keepAliveTask = SendKeepAlives(Canceller.Token);
-        // NOTE test message send
-        await Task.Delay(TimeSpan.FromSeconds(2));
-        IsInterestingToUs = true;
-        await SendMessage(new Message(Message.Id.Interested, []), Canceller.Token);
 
         MainTasks = Task.WhenAll(receiveTask, keepAliveTask);
+    }
+
+    public async Task SetInterested()
+    {
+        if (!IsInterestingToUs ?? true)
+            await SendMessage(new Message(Message.Id.Interested, []), Canceller.Token);
+        IsInterestingToUs = true;
     }
 
     private async Task ReceiveMessages(CancellationToken cancel)
