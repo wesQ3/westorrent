@@ -2,14 +2,12 @@ use v5.32; use warnings;
 use Bencode 'bencode';
 
 sub tracker_body {
-   my $peers = $ENV{WESTORRENT_LOCAL_PEERS} || '';
-   my @peers = map +{ ip => '127.0.0.1', port => $_ }, split /,/, $peers;
+   my $ports = $ENV{WESTORRENT_LOCAL_PEERS} || '';
+   my $peers = join '', map { pack('C4n', 127, 0, 0, 1, $_) } split /,/, $ports;
 
-   say STDERR 'Peers:';
-   say STDERR "  $_->{ip}:$_->{port}" for @peers;
    bencode({
       interval => 60 * 5,
-      peers => \@peers,
+      peers => $peers,
    });
 }
 
