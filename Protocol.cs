@@ -42,17 +42,22 @@ class Protocol
 
     public static async Task<Message> ReadMessage(Stream stream, CancellationToken cancel)
     {
+        // Console.Write($"ReadMessage");
         var lenbuf = new byte[4];
         await stream.ReadExactlyAsync(lenbuf, cancel);
         var msgLen = BinaryPrimitives.ReadUInt32BigEndian(lenbuf);
+        // Console.Write($":{msgLen}");
         if (msgLen == 0)
+        {
+            // Console.WriteLine();
             return new Message(); // keepalive
+        }
 
         var msgBuf = new byte[msgLen];
         await stream.ReadExactlyAsync(msgBuf);
+        // Console.WriteLine($":{(Message.Id)msgBuf[0]}");
 
         return new Message((Message.Id)msgBuf[0], msgBuf[1..]);
-
     }
 
     public static BitArray ParseBitfield(byte[] payload, int count)
@@ -67,7 +72,7 @@ class Protocol
             var b = payload[i];
             for (int j = 7; j >= 0; j--)
             {
-                var bindex = 7-j + i*8;
+                var bindex = 7 - j + i * 8;
                 if (bindex > count - 1) break;
                 bits[bindex] = (b & (1 << j)) != 0;
             }
@@ -86,7 +91,7 @@ class Protocol
         var begin = BinaryPrimitives.ReadUInt32BigEndian(payload[4..8]);
         if (begin > target.Length)
             return 0; // begin outside expected range
-        
+
         var data = payload[8..];
         if (begin + data.Length > target.Length)
             return 0; // data too long for target span

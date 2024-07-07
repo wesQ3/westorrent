@@ -140,7 +140,7 @@ public class Peer
         CurrentBytesDownloaded = 0;
         OpenRequests = 0;
         OpenBytesRequested = 0;
-        
+
         while (CurrentBytesDownloaded < pieceSize)
         {
             if (!IsChokingUs ?? false)
@@ -157,7 +157,7 @@ public class Peer
                     OpenBytesRequested += requestSize;
                 }
             }
-            await ReceiveMessage(cancel);
+            await Task.Yield();
         }
     }
 

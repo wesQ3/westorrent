@@ -84,6 +84,7 @@ public class Client
             if (InFlight.Count > 0)
             {
                 var task = await Task.WhenAny(InFlight);
+                Log($"request complete: {task}");
                 InFlight.Remove(task);
             }
             else
@@ -95,6 +96,7 @@ public class Client
     {
         while (RemainingPieces.Count > 0)
         {
+            Console.WriteLine($"remaining pieces: {RemainingPieces.Count}");
             var next = RemainingPieces[0];
             var havers = Peers.Where(p => p.HasPiece(next))
                 .Where(p => !p.IsBusy())
