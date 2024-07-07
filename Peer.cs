@@ -76,8 +76,16 @@ public class Peer
 
     private async Task ReceiveMessage(CancellationToken cancel)
     {
-        var nextMsg = await Protocol.ReadMessage(Stream, cancel);
-        await HandleMessage(nextMsg);
+        try
+        {
+            var nextMsg = await Protocol.ReadMessage(Stream, cancel);
+            await HandleMessage(nextMsg);
+        }
+        catch (EndOfStreamException e)
+        {
+            Log($"stream end, connection closed");
+            Stop();
+        }
 
     }
 
@@ -194,8 +202,16 @@ public class Peer
     public async Task SendMessage(Message msg, CancellationToken cancel)
     {
         var bytes = msg.Serialize();
-        await Stream.WriteAsync(bytes, 0, bytes.Length, cancel);
-        Log($"> {msg}");
+        try
+        {
+            await Stream.WriteAsync(bytes, 0, bytes.Length, cancel);
+            Log($"> {msg}");
+        }
+        catch (IOException e)
+        {
+            Log($"IO Error {e}");
+            Stop();
+        }
     }
 
     public void Stop()
