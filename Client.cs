@@ -8,6 +8,7 @@ public class Client
     private CancellationTokenSource Canceller;
     private List<int> RemainingPieces;
     private Random Rand;
+    private List<Task> InFlight;
 
     const string ClientId = "WB";
     const string Version = "0001";
@@ -16,6 +17,7 @@ public class Client
     public Client(Torrent tor)
     {
         Peers = [];
+        InFlight = [];
         Torrent = tor;
         PeerId = RandomPeerId();
         Canceller = new();
@@ -32,11 +34,12 @@ public class Client
         var randbytes = new byte[6].Select(b => (byte)rand.Next(256)).ToArray();
         return $"-{ClientId}{Version}-{Convert.ToHexString(randbytes)}";
     }
+
     public async Task Start()
     {
         var announceTask = AnnounceTimer();
-        var dispatchTask = AssignPieces();
-        await Task.WhenAll(announceTask, dispatchTask);
+        var cleanTask = CleanTaskList();
+        await Task.WhenAll(announceTask, cleanTask);
     }
 
     public async Task<(int, List<Peer>)> Announce()
@@ -59,13 +62,32 @@ public class Client
     public async Task AnnounceTimer()
     {
         var cancel = Canceller.Token;
-        var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
+        var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
         while (await timer.WaitForNextTickAsync(cancel) && !cancel.IsCancellationRequested)
         {
             (var interval, var newPeers) = await Announce();
             timer = new PeriodicTimer(TimeSpan.FromSeconds(interval));
             Peers = newPeers;
+            foreach (var p in Peers)
+                if (!p.IsReady())
+                    p.StartConnection(PeerId, Torrent);
             // todo merge peers
+            // todo split peers into info vs connections
+        }
+    }
+
+    public async Task CleanTaskList()
+    {
+        var cancel = Canceller.Token;
+        while (!cancel.IsCancellationRequested)
+        {
+            if (InFlight.Count > 0)
+            {
+                var task = await Task.WhenAny(InFlight);
+                InFlight.Remove(task);
+            }
+            else
+                await Task.Delay(2000);
         }
     }
 
@@ -78,26 +100,28 @@ public class Client
                 .Where(p => !p.IsBusy())
                 .ToArray();
 
-            if (havers.Length > 0)
+            if (havers.Length > 0 && InFlight.Count < MAX_PEERS_CONNECTED)
             {
                 Rand.Shuffle(havers);
-                var dlTask = havers[0].GetPiece(next);
-                // .then
-                //  RemainingPieces.Remove(next);
+                var dlTask = GetPiece(havers[0], next);
+                InFlight.Add(dlTask);
             }
 
-            await Task.Delay(2*1000);
+            await Task.Delay(2 * 1000);
         }
+    }
+
+    public async Task GetPiece(Peer peer, int pieceId)
+    {
+        await peer.GetPiece(pieceId);
+        RemainingPieces.Remove(pieceId);
+        // write piece to buffer/file storage
     }
 
     public async Task DownloadToFile(string outFile)
     {
         var mainTasks = Start();
-        var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
-        // while (await timer.WaitForNextTickAsync() && Torrent.HasMissingPieces())
-        // {
-        //     // start download tasks
-        // }
+        await AssignPieces();
         // assemble file from pieces
     }
 }

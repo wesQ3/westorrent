@@ -18,6 +18,7 @@ public class Peer
     bool? IsInterestingToUs { get; set; }
     string? PeerId { get; set; }
     BitArray? Pieces { get; set; }
+    private Task MainTasks;
 
     int CurrentPieceId;
     byte[] CurrentPieceBytes;
@@ -36,6 +37,7 @@ public class Peer
         Address = new IPAddress(bytes[0..4]);
         Port = (bytes[4] << 8) + bytes[5];
         Canceller = new();
+        CurrentPieceId = -1;
     }
 
     public Peer(string ip, int port)
@@ -43,9 +45,10 @@ public class Peer
         Address = IPAddress.Parse(ip);
         Port = port;
         Canceller = new();
+        CurrentPieceId = -1;
     }
 
-    public async Task StartConnection(string ourPeerId, Torrent torrent)
+    public async void StartConnection(string ourPeerId, Torrent torrent)
     {
         TorrentInfo = torrent;
         CurrentPieceBytes = new byte[torrent.PieceLength];
@@ -57,7 +60,7 @@ public class Peer
         IsInterestingToUs = true;
         await SendMessage(new Message(Message.Id.Interested, []), Canceller.Token);
 
-        await Task.WhenAll(receiveTask, keepAliveTask);
+        MainTasks = Task.WhenAll(receiveTask, keepAliveTask);
     }
 
     private async Task ReceiveMessages(CancellationToken cancel)
@@ -87,12 +90,6 @@ public class Peer
                 break;
             case Message.Id.Unchoke:
                 IsChokingUs = false;
-                // NOTE testing Request/Piece
-                if (IsInterestingToUs ?? false)
-                {
-                    await GetPiece(0);
-                    await GetPiece(TorrentInfo.Pieces.Count - 1);
-                }
                 break;
             case Message.Id.Bitfield:
                 Pieces = Protocol.ParseBitfield(msg.Payload, TorrentInfo.Pieces.Count);

@@ -2,10 +2,10 @@ var outFile = GetArg("out") ?? ".torrent/download";
 var torrentFile = GetArg("torrent") ?? ".torrent/example.torrent";
 
 var tor = new Torrent(torrentFile);
-// var client = new Client(tor);
-// await client.DownloadToFile(outFile);
-var localQBT = new Peer("127.0.0.1", 33854);
-await localQBT.StartConnection(Client.RandomPeerId(), tor);
+var client = new Client(tor);
+await client.DownloadToFile(outFile);
+// var localQBT = new Peer("127.0.0.1", 33854);
+// await localQBT.StartConnection(Client.RandomPeerId(), tor);
 
 string? GetArg(string label)
 {
