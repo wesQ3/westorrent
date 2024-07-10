@@ -27,7 +27,7 @@ public class Client
         var indexes = Enumerable.Range(0, tor.Pieces.Count).ToArray();
         Rand.Shuffle(indexes);
         RemainingPieces = [.. indexes];
-        Console.WriteLine($"new client {PeerId}");
+        Log($"new client {PeerId}");
     }
 
     public static string RandomPeerId()
@@ -50,11 +50,11 @@ public class Client
         var cancel = Canceller.Token;
         while (!cancel.IsCancellationRequested)
         {
-            System.Console.WriteLine($"connect peers! {KnownPeers.Count()}");
             var openSlots = MAX_PEERS_CONNECTED - ConnectedPeers.Count;
             var available = KnownPeers.ExcludeConnected(ConnectedPeers.ToArray());
             if (openSlots > 0 && available.Length > 0)
             {
+                Log($"connect more peers {ConnectedPeers.Count}/{MAX_PEERS_CONNECTED} ({KnownPeers.Count()})");
                 Rand.Shuffle(available);
                 for (var i = 0; i < openSlots && i < available.Length; i++)
                 {
@@ -69,15 +69,15 @@ public class Client
 
     public async Task<(int, List<PeerInfo>)> Announce()
     {
-        Console.WriteLine($"announce to: {Torrent.Tracker}");
+        Log($"announce to: {Torrent.Tracker}");
         var ua = new HttpClient();
         var uri = Protocol.AnnounceRequest(Torrent, PeerId);
         var res = await ua.GetAsync(uri);
-        Console.WriteLine($"  announce res: {res.StatusCode}");
+        Log($"  announce res: {res.StatusCode}");
         var resContent = await res.Content.ReadAsByteArrayAsync();
         if (!res.IsSuccessStatusCode)
         {
-            Console.WriteLine($"  announce res: {Encoding.UTF8.GetString(resContent)}");
+            Log($"  announce res: {Encoding.UTF8.GetString(resContent)}");
             throw new Exception("announce response error");
         }
 
@@ -104,8 +104,8 @@ public class Client
             if (InFlight.Count > 0)
             {
                 var task = await Task.WhenAny(InFlight);
-                Log($"request complete: {task}");
                 InFlight.Remove(task);
+                Log($"request complete; open requests: {InFlight.Count}");
             }
             else
                 await Task.Delay(2000);
@@ -116,7 +116,6 @@ public class Client
     {
         while (RemainingPieces.Count > 0)
         {
-            Console.WriteLine($"remaining pieces: {RemainingPieces.Count}");
             var next = RemainingPieces[0];
             var havers = ConnectedPeers.Where(p => p.HasPiece(next))
                 .Where(p => !p.IsBusy())
@@ -124,13 +123,14 @@ public class Client
 
             if (havers.Length > 0 && InFlight.Count < MAX_PEERS_CONNECTED)
             {
+                Log($"remaining pieces: {RemainingPieces.Count}");
                 Rand.Shuffle(havers);
                 await havers[0].SetInterested();
                 var dlTask = GetPiece(havers[0], next);
                 InFlight.Add(dlTask);
             }
 
-            await Task.Delay(2 * 1000);
+            await Task.Delay(1 * 1000);
         }
     }
 
@@ -147,6 +147,7 @@ public class Client
     {
         var mainTasks = Start();
         await AssignPieces();
+        Log("download complete");
         // assemble file from pieces
     }
 

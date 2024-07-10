@@ -59,9 +59,18 @@ public class Message
             case Id.Choke:
             case Id.Unchoke:
                 return $"{MessageId}:{Payload?.Length}";
+            case Id.Request:
+            {
+                var index  = BinaryPrimitives.ReadUInt32BigEndian(Payload.AsSpan()[0..4]);
+                var begin  = BinaryPrimitives.ReadUInt32BigEndian(Payload.AsSpan()[4..8]);
+                var length = BinaryPrimitives.ReadUInt32BigEndian(Payload.AsSpan()[8..12]);
+                return $"{MessageId}@{index}:{begin}~{length}";
+            }
             case Id.Piece:
+            {
                 var index = BinaryPrimitives.ReadUInt32BigEndian(Payload.AsSpan()[0..4]);
                 return $"{MessageId}@{index}:{Payload?.Length}";
+            }
             default:
                 return $"{MessageId}:{BitConverter.ToString(Payload ?? [])}";
         }
