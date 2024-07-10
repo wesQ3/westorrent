@@ -2,13 +2,14 @@ using System.Text;
 
 public class Client
 {
-    List<Peer> Peers { get; set; }
+    List<Peer> ConnectedPeers { get; set; }
     Torrent Torrent { get; set; }
     string PeerId { get; set; }
     private CancellationTokenSource Canceller;
     private List<int> RemainingPieces;
     private Random Rand;
     private List<Task> InFlight;
+    private PeerList KnownPeers;
 
     const string ClientId = "WB";
     const string Version = "0001";
@@ -16,7 +17,8 @@ public class Client
 
     public Client(Torrent tor)
     {
-        Peers = [];
+        ConnectedPeers = [];
+        KnownPeers = new();
         InFlight = [];
         Torrent = tor;
         PeerId = RandomPeerId();
@@ -39,10 +41,33 @@ public class Client
     {
         var announceTask = AnnounceTimer();
         var cleanTask = CleanTaskList();
-        await Task.WhenAll(announceTask, cleanTask);
+        var connectTask = ConnectPeers();
+        await Task.WhenAll(announceTask, cleanTask, connectTask);
     }
 
-    public async Task<(int, List<Peer>)> Announce()
+    public async Task ConnectPeers()
+    {
+        var cancel = Canceller.Token;
+        while (!cancel.IsCancellationRequested)
+        {
+            System.Console.WriteLine($"connect peers! {KnownPeers.Count()}");
+            var openSlots = MAX_PEERS_CONNECTED - ConnectedPeers.Count;
+            var available = KnownPeers.ExcludeConnected(ConnectedPeers.ToArray());
+            if (openSlots > 0 && available.Length > 0)
+            {
+                Rand.Shuffle(available);
+                for (var i = 0; i < openSlots && i < available.Length; i++)
+                {
+                    Peer newPeer = new(available[i]);
+                    ConnectedPeers.Add(newPeer);
+                    newPeer.StartConnection(PeerId, Torrent);
+                }
+            }
+            await Task.Delay(2*1000);
+        }
+    }
+
+    public async Task<(int, List<PeerInfo>)> Announce()
     {
         Console.WriteLine($"announce to: {Torrent.Tracker}");
         var ua = new HttpClient();
@@ -67,12 +92,7 @@ public class Client
         {
             (var interval, var newPeers) = await Announce();
             timer = new PeriodicTimer(TimeSpan.FromSeconds(interval));
-            Peers = newPeers;
-            foreach (var p in Peers)
-                if (!p.IsReady())
-                    p.StartConnection(PeerId, Torrent);
-            // todo merge peers
-            // todo split peers into info vs connections
+            KnownPeers.MergePeers(newPeers);
         }
     }
 
@@ -98,7 +118,7 @@ public class Client
         {
             Console.WriteLine($"remaining pieces: {RemainingPieces.Count}");
             var next = RemainingPieces[0];
-            var havers = Peers.Where(p => p.HasPiece(next))
+            var havers = ConnectedPeers.Where(p => p.HasPiece(next))
                 .Where(p => !p.IsBusy())
                 .ToArray();
 
@@ -116,7 +136,7 @@ public class Client
 
     public async Task GetPiece(Peer peer, int pieceId)
     {
-        Log($"assign   {peer}: {pieceId}");
+        Log($"assign   {peer.PeerId}: {pieceId}");
         await peer.GetPiece(pieceId);
         Log($"complete {peer}: {pieceId}");
         RemainingPieces.Remove(pieceId);

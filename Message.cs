@@ -59,7 +59,8 @@ public class Message
             case Id.Choke:
             case Id.Unchoke:
             case Id.Piece:
-                return $"{MessageId}:{Payload?.Length}";
+                var index = BinaryPrimitives.ReadUInt32BigEndian(Payload.AsSpan()[0..4]);
+                return $"{MessageId}@{index}:{Payload?.Length}";
             default:
                 return $"{MessageId}:{BitConverter.ToString(Payload ?? [])}";
         }

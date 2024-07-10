@@ -28,14 +28,14 @@ class Protocol
         return string.Join("", infoHash.Select(x => "%" + x.ToString("X2")));
     }
 
-    public static (int, List<Peer>) ParseAnnounceResponse(byte[] bytes)
+    public static (int, List<PeerInfo>) ParseAnnounceResponse(byte[] bytes)
     {
         using var fs = File.OpenWrite("../last-announce-reponse.dat");
         fs.Write(bytes);
         var interval = (int)Bencode.ReadInt(bytes, "8:interval");
         Console.WriteLine($"  interval: {interval}");
         var peers = Bencode.ReadBytes(bytes, "5:peers");
-        var peerList = peers.Chunk(6).Select(p => new Peer(p)).ToList();
+        var peerList = peers.Chunk(6).Select(p => new PeerInfo(p)).ToList();
         Console.WriteLine($"  peers: {peerList.Count}");
         return (interval, peerList);
     }

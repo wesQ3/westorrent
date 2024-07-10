@@ -16,7 +16,7 @@ public class Peer
     private CancellationTokenSource Canceller;
     bool? IsChokingUs { get; set; }
     bool? IsInterestingToUs { get; set; }
-    string? PeerId { get; set; }
+    public string? PeerId { get; set; }
     BitArray? Pieces { get; set; }
     private Task MainTasks;
 
@@ -29,21 +29,10 @@ public class Peer
     const int MAX_BLOCK_SIZE = 16384;
     const int MAX_OPEN_REQUESTS = 5;
 
-    public Peer(byte[] bytes)
+    public Peer(PeerInfo info)
     {
-        if (bytes.Length != 6)
-            throw new Exception("Peer constructor needs 6 bytes");
-
-        Address = new IPAddress(bytes[0..4]);
-        Port = (bytes[4] << 8) + bytes[5];
-        Canceller = new();
-        CurrentPieceId = -1;
-    }
-
-    public Peer(string ip, int port)
-    {
-        Address = IPAddress.Parse(ip);
-        Port = port;
+        Address = info.Address;
+        Port = info.Port;
         Canceller = new();
         CurrentPieceId = -1;
     }
@@ -271,6 +260,15 @@ public class Peer
     override public string ToString()
     {
         return $"{Address}:{Port}";
+    }
+
+    public PeerInfo ToPeerInfo()
+    {
+        return new PeerInfo
+        {
+            Address = this.Address,
+            Port = this.Port
+        };
     }
 
     private void Log(string message)
