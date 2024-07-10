@@ -10,10 +10,11 @@ public class Client
     private Random Rand;
     private List<Task> InFlight;
     private PeerList KnownPeers;
+    private string OutFileName;
 
     const string ClientId = "WB";
-    const string Version = "0001";
-    const int MAX_PEERS_CONNECTED = 10;
+    const string Version = "1000";
+    const int MAX_PEERS_CONNECTED = 30;
 
     public Client(Torrent tor)
     {
@@ -137,18 +138,33 @@ public class Client
     public async Task GetPiece(Peer peer, int pieceId)
     {
         Log($"assign   {peer.PeerId}: {pieceId}");
-        await peer.GetPiece(pieceId);
+        byte[] piece = await peer.GetPiece(pieceId);
+        await SavePiece(pieceId, piece);
         Log($"complete {peer}: {pieceId}");
         RemainingPieces.Remove(pieceId);
-        // write piece to buffer/file storage
+    }
+
+    public async Task SavePiece(int pieceId, byte[] data)
+    {
+        using var fs = new FileStream(OutFileName, FileMode.Open, FileAccess.Write);
+        (var begin, _) = Torrent.PieceBounds(pieceId);
+        fs.Seek(begin, SeekOrigin.Begin);
+        await fs.WriteAsync(data);
+    }
+
+    public void InitializeOutFile()
+    {
+        using var fs = new FileStream(OutFileName, FileMode.Create, FileAccess.Write);
+        fs.SetLength(Torrent.Size);
     }
 
     public async Task DownloadToFile(string outFile)
     {
+        OutFileName = outFile;
+        InitializeOutFile();
         var mainTasks = Start();
         await AssignPieces();
         Log("download complete");
-        // assemble file from pieces
     }
 
     private void Log(string message)

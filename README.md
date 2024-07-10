@@ -29,7 +29,7 @@ $ curl localhost:5000 | xxd
 - [x] get peers via tracker announce
 - [x] connect to peer
 - [x] download piece from peer
-- [ ] save piece in file storage
+- [x] save piece in file storage
 - [x] connect to peers from tracker
 - [x] merge peer list after re-announce
 - [x] multiple connections
