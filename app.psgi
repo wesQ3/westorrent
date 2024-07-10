@@ -6,7 +6,7 @@ sub tracker_body {
    my $peers = join '', map { pack('C4n', 127, 0, 0, 1, $_) } split /,/, $ports;
 
    bencode({
-      interval => 60 * 5,
+      interval => 30,
       peers => $peers,
    });
 }
